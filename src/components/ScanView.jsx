@@ -1,0 +1,216 @@
+import { useState, useEffect, useRef } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
+import { X, Search, Camera, Lightbulb } from 'lucide-react';
+import { useApp } from '../contexts/AppContext';
+import { fetchProductInfo } from '../utils/productUtils';
+
+export default function ScanView() {
+  const { setScannedProduct, setCurrentView } = useApp();
+  const [isScanning, setIsScanning] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const scannerRef = useRef(null);
+  const html5QrCodeRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      stopScanner();
+    };
+  }, []);
+
+const startScanner = async () => {
+    if (isScanning) return;
+    
+    setError(null);
+    setIsScanning(true);
+
+    try {
+      const html5QrCode = new Html5Qrcode("reader");
+      html5QrCodeRef.current = html5QrCode;
+
+      // Get available cameras
+      const devices = await Html5Qrcode.getCameras();
+      
+      if (devices && devices.length > 0) {
+        // Use the back camera if available, otherwise use first camera
+        const cameraId = devices.length > 1 ? devices[1].id : devices[0].id;
+        
+        await html5QrCode.start(
+          cameraId, // Use specific camera ID instead of facingMode
+          { 
+            fps: 10, 
+            qrbox: { width: 250, height: 250 }
+          },
+          async (decodedText) => {
+            await stopScanner();
+            await handleBarcodeScanned(decodedText);
+          },
+          (errorMessage) => {
+            // Silent error - this fires on every frame without a barcode
+          }
+        );
+      } else {
+        throw new Error("No cameras found");
+      }
+    } catch (err) {
+      console.error("Scanner error:", err);
+      setError("Unable to access camera. For file:// protocol, please run with 'npm run dev' or deploy to https://");
+      setIsScanning(false);
+    }
+  };
+
+  const stopScanner = async () => {
+    if (html5QrCodeRef.current && isScanning) {
+      try {
+        await html5QrCodeRef.current.stop();
+        html5QrCodeRef.current = null;
+      } catch (err) {
+        console.error("Error stopping scanner:", err);
+      }
+    }
+    setIsScanning(false);
+  };
+
+  const handleBarcodeScanned = async (barcode) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const productInfo = await fetchProductInfo(barcode);
+      
+      if (productInfo) {
+        setScannedProduct(productInfo);
+        setCurrentView('add');
+      } else {
+        setError('Product not found in database. Try entering the barcode manually.');
+      }
+    } catch (err) {
+      setError('Error fetching product information. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleManualSearch = async () => {
+    const barcode = manualBarcode.trim();
+    if (!barcode) return;
+
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const productInfo = await fetchProductInfo(barcode);
+      
+      if (productInfo) {
+        setScannedProduct(productInfo);
+        setManualBarcode('');
+        setCurrentView('add');
+      } else {
+        setError('Product not found. Check the barcode and try again.');
+      }
+    } catch (err) {
+      setError('Error fetching product information. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleManualSearch();
+    }
+  };
+
+  return (
+    <div className="space-y-5 animate-fade-in">
+      {/* Scanner Card */}
+      <div className="card overflow-hidden">
+        <div className="p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">
+            Scan Barcode
+          </h2>
+          
+          {!isScanning ? (
+            <div className="text-center py-12">
+              <div className="w-20 h-20 mx-auto mb-4 text-gray-300">
+                <Camera className="w-full h-full" />
+              </div>
+              <p className="text-gray-600 mb-6">
+                Point your camera at a product barcode
+              </p>
+              <button
+                onClick={startScanner}
+                disabled={isLoading}
+                className="btn btn-primary"
+              >
+                <Camera className="w-5 h-5" />
+                <span>Start Camera</span>
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div id="reader" className="mb-4"></div>
+              <button
+                onClick={stopScanner}
+                className="btn btn-danger w-full"
+              >
+                <X className="w-5 h-5" />
+                <span>Stop Scanning</span>
+              </button>
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Manual Entry Card */}
+      <div className="card">
+        <div className="p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">
+            Enter Barcode Manually
+          </h2>
+          
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={manualBarcode}
+              onChange={(e) => setManualBarcode(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Enter barcode number"
+              className="input flex-1"
+              disabled={isLoading}
+            />
+            <button
+              onClick={handleManualSearch}
+              disabled={isLoading || !manualBarcode.trim()}
+              className="btn btn-primary"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Search className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+
+          <div className="mt-3 flex items-start gap-2 text-sm text-gray-600">
+            <Lightbulb className="w-4 h-4 mt-0.5 text-yellow-500 flex-shrink-0" />
+            <div>
+              <span className="font-medium">Try:</span>{' '}
+              <code className="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono">
+                3017620422003
+              </code>
+              {' '}(Nutella)
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
