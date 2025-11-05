@@ -72,6 +72,15 @@ export default function ScanView() {
     setError(null);
     setIsScanning(true);
 
+    await new Promise (resolve => setTimeout(resolve,100))
+
+    const readerElement = document.getElementById('reader');
+    if (!readerElement) {
+      setError('Scanner initialization failed. Please try again.');
+      setIsScanning(false);
+      return;
+    }
+
     try {
       const html5QrCode = new Html5Qrcode("reader");
       html5QrCodeRef.current = html5QrCode;
