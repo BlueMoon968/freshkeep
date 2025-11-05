@@ -99,10 +99,10 @@ export default function FridgeView() {
                 </div>
               </div>
             </div>
-            <Credits />
-          </div>
+          </div>    
         );
       })}
+      <Credits />
     </div>
   );
 }
