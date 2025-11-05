@@ -73,15 +73,6 @@ export default function ScanView() {
     setIsScanning(true);
 
     try {
-      // Request camera permission first
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
-      });
-      videoStreamRef.current = stream;
-
-      // Small delay to ensure camera is ready
-      await new Promise(resolve => setTimeout(resolve, 500));
-
       const html5QrCode = new Html5Qrcode("reader");
       html5QrCodeRef.current = html5QrCode;
 
