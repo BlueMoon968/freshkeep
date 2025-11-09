@@ -4,6 +4,7 @@ import BottomNav from './components/BottomNav';
 import FridgeView from './components/FridgeView';
 import ScanView from './components/ScanView';
 import AddProductView from './components/AddProductView';
+import RecipesView from './components/RecipesView';
 
 function AppContent() {
   const { currentView } = useApp();
@@ -14,6 +15,7 @@ function AppContent() {
       
       <main className="container mx-auto px-4 py-6">
         {currentView === 'fridge' && <FridgeView />}
+        {currentView === 'recipes' && <RecipesView />}
         {currentView === 'scan' && <ScanView />}
         {currentView === 'add' && <AddProductView />}
       </main>
